@@ -1,6 +1,7 @@
 import csv
 from datetime import datetime, timedelta
 
+
 class Event:
     def __init__(self, name, date, comments, category, notifications):
         self.name = name
@@ -12,11 +13,12 @@ class Event:
     def to_dict(self):
         return {
             'name': self.name,
-            'date': self.date.strftime('%Y-%m-%d %H:%M'),
+            'date': self.date.strftime('%d-%m-%Y %H:%M'),
             'comments': self.comments,
             'category': self.category,
             'notifications': self.notifications
         }
+
 
 class EventManager:
     def __init__(self, filename='events.csv'):
@@ -29,9 +31,9 @@ class EventManager:
             with open(self.filename, mode='r', newline='') as file:
                 reader = csv.DictReader(file)
                 for row in reader:
-                    row['date'] = datetime.strptime(row['date'], '%Y-%m-%d %H:%M')
-                    # No need to handle 'duration' since it's removed from Event
-                    events.append(Event(row['name'], row['date'], row['comments'], row['category'], row['notifications']))
+                    row['date'] = datetime.strptime(row['date'], '%d-%m-%Y %H:%M')
+                    events.append(
+                        Event(row['name'], row['date'], row['comments'], row['category'], row['notifications']))
         except FileNotFoundError:
             pass
         return events
@@ -80,6 +82,7 @@ class EventManager:
     def list_events(self):
         return self.events
 
+
 def main():
     manager = EventManager()
 
@@ -89,9 +92,9 @@ def main():
 
         if option == 'add':
             name = input("Event name: ")
-            date_str = input("Event date (YYYY-MM-DD HH:MM): ")
+            date_str = input("Event date (DD-MM-YYYY HH:MM): ")
             try:
-                date = datetime.strptime(date_str, '%Y-%m-%d %H:%M')
+                date = datetime.strptime(date_str, '%d-%m-%Y %H:%M')
             except ValueError:
                 print("Invalid date format. Please try again.")
                 continue
@@ -107,12 +110,13 @@ def main():
                 continue
 
             name = input("New event name (leave blank for no change): ") or None
-            date_str = input("New event date (leave blank for no change, YYYY-MM-DD HH:MM): ")
-            date = datetime.strptime(date_str, '%Y-%m-%d %H:%M') if date_str else None
+            date_str = input("New event date (leave blank for no change, DD-MM-YYYY HH:MM): ")
+            date = datetime.strptime(date_str, '%d-%m-%Y %H:%M') if date_str else None
             comments = input("New comments (leave blank for no change): ") or None
             category = input("New category (leave blank for no change): ") or None
             notifications = input("New notifications (leave blank for no change): ") or None
-            manager.edit_event(index, name=name, date=date, comments=comments, category=category, notifications=notifications)
+            manager.edit_event(index, name=name, date=date, comments=comments, category=category,
+                               notifications=notifications)
 
         elif option == 'remove':
             index = int(input("Event index to remove: "))
@@ -131,8 +135,9 @@ def main():
 
         elif option == 'filter':
             while True:
-                timeframe = input("Timeframe (today, this_week, this_month): ")
-                category = input("Category (leave blank for all): ")
+                timeframe = input("Timeframe (today, this_week, this_month): ").strip().lower()
+                category = input("Category (leave blank for all): ").strip()
+
                 if timeframe in ['today', 'this_week', 'this_month']:
                     events = manager.filter_events(timeframe, category or None)
                     if not events:
@@ -146,6 +151,7 @@ def main():
 
         elif option == 'exit':
             break
+
 
 if __name__ == '__main__':
     main()
