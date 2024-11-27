@@ -1,6 +1,7 @@
 import csv
 from datetime import datetime, timedelta
 
+
 class Event:
     def __init__(self, name, date, comments, category, notifications):
         self.name = name
@@ -12,11 +13,12 @@ class Event:
     def to_dict(self):
         return {
             'name': self.name,
-            'date': self.date.strftime('%Y-%m-%d %H:%M'),
+            'date': self.date.strftime('%d-%m-%Y %H:%M'),
             'comments': self.comments,
             'category': self.category,
             'notifications': self.notifications
         }
+
 
 class EventManager:
     def __init__(self, filename='events.csv'):
@@ -29,9 +31,9 @@ class EventManager:
             with open(self.filename, mode='r', newline='') as file:
                 reader = csv.DictReader(file)
                 for row in reader:
-                    row['date'] = datetime.strptime(row['date'], '%Y-%m-%d %H:%M')
-                    # No need to handle 'duration' since it's removed from Event
-                    events.append(Event(row['name'], row['date'], row['comments'], row['category'], row['notifications']))
+                    row['date'] = datetime.strptime(row['date'], '%d-%m-%Y %H:%M')
+                    events.append(
+                        Event(row['name'], row['date'], row['comments'], row['category'], row['notifications']))
         except FileNotFoundError:
             pass
         return events
@@ -77,27 +79,60 @@ class EventManager:
         filtered_events = [event for event in self.events if start <= event.date <= end]
         return [event for event in filtered_events if event.category == category] if category else filtered_events
 
+    def summarize_events(self, timeframe):
+        now = datetime.now()
+
+        if timeframe == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = now.replace(hour=23, minute=59, second=59)
+        elif timeframe == 'this_week':
+            start = now - timedelta(days=now.weekday())
+            end = start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        elif timeframe == 'this_month':
+            start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end = (start + timedelta(days=31)).replace(day=1) - timedelta(seconds=1)
+        else:
+            return {}  # Return an empty dict if the timeframe is invalid
+
+        # Summarizing the number of events by category
+        summary = {}
+        for event in self.events:
+            if start <= event.date <= end:
+                summary[event.category] = summary.get(event.category, 0) + 1
+
+        return summary
+
     def list_events(self):
         return self.events
+
+
+def get_valid_input(prompt, is_date=False):
+    while True:
+        user_input = input(prompt).strip()
+        if not user_input:
+            return None  # Allow leaving blank
+        if is_date:
+            try:
+                return datetime.strptime(user_input, '%d-%m-%Y %H:%M')
+            except ValueError:
+                print("Invalid date format. Please try again (DD-MM-YYYY HH:MM).")
+        else:
+            return user_input
+
 
 def main():
     manager = EventManager()
 
     while True:
-        print("\nOptions: add, edit, remove, list, filter, exit")
+        print("\nOptions: add, edit, remove, list, filter, summarize, exit")
         option = input("Choose an option: ").strip().lower()
 
         if option == 'add':
-            name = input("Event name: ")
-            date_str = input("Event date (YYYY-MM-DD HH:MM): ")
-            try:
-                date = datetime.strptime(date_str, '%Y-%m-%d %H:%M')
-            except ValueError:
-                print("Invalid date format. Please try again.")
-                continue
-            comments = input("Comments: ")
-            category = input("Category: ")
-            notifications = input("Notifications: ")
+            name = get_valid_input("Event name: ")
+            date = get_valid_input("Event date (DD-MM-YYYY HH:MM): ", is_date=True)
+            comments = get_valid_input("Comments: ")
+            category = get_valid_input("Category: ")
+            notifications = get_valid_input("Notifications: ")
             manager.add_event(name, date, comments, category, notifications)
 
         elif option == 'edit':
@@ -106,13 +141,13 @@ def main():
                 print("Invalid index. Please try again.")
                 continue
 
-            name = input("New event name (leave blank for no change): ") or None
-            date_str = input("New event date (leave blank for no change, YYYY-MM-DD HH:MM): ")
-            date = datetime.strptime(date_str, '%Y-%m-%d %H:%M') if date_str else None
-            comments = input("New comments (leave blank for no change): ") or None
-            category = input("New category (leave blank for no change): ") or None
-            notifications = input("New notifications (leave blank for no change): ") or None
-            manager.edit_event(index, name=name, date=date, comments=comments, category=category, notifications=notifications)
+            name = get_valid_input("New event name (leave blank for no change): ")
+            date = get_valid_input("New event date (leave blank for no change, DD-MM-YYYY HH:MM): ", is_date=True)
+            comments = get_valid_input("New comments (leave blank for no change): ")
+            category = get_valid_input("New category (leave blank for no change): ")
+            notifications = get_valid_input("New notifications (leave blank for no change): ")
+            manager.edit_event(index, name=name, date=date, comments=comments, category=category,
+                               notifications=notifications)
 
         elif option == 'remove':
             index = int(input("Event index to remove: "))
@@ -131,8 +166,9 @@ def main():
 
         elif option == 'filter':
             while True:
-                timeframe = input("Timeframe (today, this_week, this_month): ")
-                category = input("Category (leave blank for all): ")
+                timeframe = input("Timeframe (today, this_week, this_month): ").strip().lower()
+                category = input("Category (leave blank for all): ").strip()
+
                 if timeframe in ['today', 'this_week', 'this_month']:
                     events = manager.filter_events(timeframe, category or None)
                     if not events:
@@ -144,8 +180,18 @@ def main():
                 else:
                     print("Invalid timeframe. Please try again.")
 
+        elif option == 'summarize':
+            timeframe = input("Timeframe (today, this_week, this_month): ").strip().lower()
+            summary = manager.summarize_events(timeframe)
+            if not summary:
+                print("No events found for the specified timeframe.")
+            else:
+                for category, count in summary.items():
+                    print(f"{category}: {count} event(s)")
+
         elif option == 'exit':
             break
+
 
 if __name__ == '__main__':
     main()
