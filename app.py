@@ -268,12 +268,5 @@ if __name__ == "__main__":
 #     README.md
 
 
-streamlit==1.15.0
-pandas==1.3.5
-
-pip freeze > requirements.txt
-gti init
-heroku login
-
 
 
